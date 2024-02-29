@@ -34,6 +34,7 @@ import LData
       ','       { TokenComma }
       '('       { TokenOBrack }
       ')'       { TokenCBrack }
+      '='       { TokenEq }
       split     { TokenSplit }
       as        { TokenAs }
       in        { TokenIn }
@@ -41,7 +42,7 @@ import LData
 
 %left AP
 %right '\\' "->" '.'
-%nonassoc "lin" "un" "1" "w" "Bool" bool '*' '<' '>' ':' ',' '(' ')' split as in var
+%nonassoc "lin" "un" "1" "w" "Bool" bool '*' '<' '>' ':' ',' '(' ')' '=' split as in var
 
 %%
 Env : {- empty -} { [] }
@@ -77,7 +78,7 @@ PreType : "Bool" { TBool }
 
 Values : Qual PreValues { QValue $1 $2 }
 
-PreValues : '<' var ',' var '>' { RPair $2 $4 }
+PreValues : '<' Term ',' Term '>' { RPair $2 $4 }
           | '\\' var ':' Type '.' Term { RLambda $2 $4 $6 }
 
 LEnv : {- empty -} { [] }
@@ -90,7 +91,7 @@ LStore : {- empty -} { [] }
        | LStore ',' LS { $3 : $1 }
        | LS { [$1] }
 
-LS : var ':' LTerm { ($1, $3) }
+LS : var ':' Pi LType '=' LTerm { ($1, ($3, $4, $6)) }
 
 LTerm : var { LVar $1 }
       | Pi '<' LTerm ',' LTerm '>' { LPair $3 $5 $1 }
@@ -130,6 +131,7 @@ data Token
       | TokenComma
       | TokenOBrack
       | TokenCBrack
+      | TokenEq
       | TokenSplit
       | TokenAs
       | TokenIn
@@ -151,6 +153,7 @@ lexer (':':cs) = TokenColon : lexer cs
 lexer (',':cs) = TokenComma : lexer cs
 lexer ('(':cs) = TokenOBrack : lexer cs
 lexer (')':cs) = TokenCBrack : lexer cs
+lexer ('=':cs) = TokenEq : lexer cs
 
 lexVar :: String -> [Token]
 lexVar cs =
@@ -184,7 +187,7 @@ parseLEnv env = parse4(lexer env)
 parseLTerm :: String -> LTerm
 parseLTerm term = parse5(lexer term)
 
-parsePrimLStore :: [(String, LTerm)] -> LStore
+parsePrimLStore :: [(String, (Pi, LType, LTerm))] -> LStore
 parsePrimLStore [] = Map.empty
 parsePrimLStore l = Map.fromList l
 

@@ -31,7 +31,7 @@ module WData where
             deriving (Show, Eq)
 
   type Env = [(V, Type)]
-  data PreValues = RPair V V
+  data PreValues = RPair Term Term
                  | RLambda V Type Term
                  deriving (Show, Eq)
 

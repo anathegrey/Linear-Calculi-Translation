@@ -13,6 +13,7 @@ module LData where
             | LSplit LTerm V V LTerm   -- split t as x,y in t
             | LLambda Pi V LType LTerm  -- q \x:T.t
             | LApp LTerm LTerm
+            | Let Pi [(V, LType, LTerm)] LTerm
             deriving (Show, Eq)
 
   data LType = LTBool
@@ -23,4 +24,4 @@ module LData where
 
   type LEnv = [(V, Pi, LType)]
 
-  type LStore = Map V LTerm
+  type LStore = Map V (Pi, LType, LTerm)

@@ -4,6 +4,7 @@ module WOperational where
   import qualified Data.Map as Map
   import Data.List as List
   import Parser
+  import Control.Monad.Supply
 
   -- in order to avoid creation of two sets of operational rules, one for linear data, which is deallocated when used, and one for unrestricted data, which is never deallocated, we define this function to manage the differences
   updateStore :: Store -> Q -> V -> Store
@@ -13,7 +14,7 @@ module WOperational where
         _       -> if q == UN then s else Map.delete y s
 
   -- function to assist in the creation of new variables
-  nextAddr :: Store -> Int
+{-  nextAddr :: Store -> Int
   nextAddr s
     = case Map.lookup x s of
         Nothing -> n
@@ -24,7 +25,12 @@ module WOperational where
           nextAddr' s n' = let x' = "a" ++ (show n')
                            in case Map.lookup x' s of
                                Nothing -> n'
-                               _       -> nextAddr' s (n' + 1)
+                               _       -> nextAddr' s (n' + 1)-}
+
+  newVar :: Supply [Char] [Char]
+  newVar = do
+      name <- supply
+      return ("a" ++ name)
 
   -- substitution
   subst :: (V, Term) -> Term -> Term
@@ -36,17 +42,13 @@ module WOperational where
 
   -- evaluation function
   eval :: Store -> Term -> (Store, Term)
-  eval s (Pair q (Var y) (Var z)) = let addr = nextAddr s
-                                        x = "a" ++ show addr
-                                    in (Map.insert x (QValue q (RPair y z)) s, Var x)
-  eval s (Pair q (Var y) e) = let (s', v) = eval s e
-                              in eval s' (Pair q (Var y) v)
-  eval s (Pair q e t) = let (s', v) = eval s e
-                        in eval s' (Pair q v t)
-  eval s (Split (Var x) y z t) = let Just (QValue q (RPair y1 z1)) = Map.lookup x s
+  eval s (Pair q t1 t2) = let addr = nextAddr s
+                              x = "a" ++ show addr
+                          in (Map.insert x (QValue q (RPair t1 t2)) s, Var x)
+  eval s (Split (Var x) y z t) = let Just (QValue q (RPair t1 t2)) = Map.lookup x s
                                      s'  = updateStore s q x
-                                     t'  = subst (y, Var y1) t
-                                     t'' = subst (z, Var z1) t'
+                                     t'  = subst (y, t1) t
+                                     t'' = subst (z, t2) t'
                                  in (s', t'')
   eval s (Split e y z t) = let (s', v) = eval s e
                            in eval s' (Split v y z t)
@@ -64,7 +66,7 @@ module WOperational where
 
   sepValue :: Maybe Values -> Term
   sepValue (Just (QValue q (RLambda x p t))) = Lambda q x p t
-  sepValue (Just (QValue q (RPair x1 x2))) = Pair q (Var x1) (Var x2)
+  sepValue (Just (QValue q (RPair t1 t2))) = Pair q t1 t2
 
   boundW :: Term -> [V]
   boundW (Var x) = []
