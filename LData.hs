@@ -8,20 +8,20 @@ module LData where
 
   type V = String
 
-  data LTerm = LVar V
-            | LPair LTerm LTerm Pi
-            | LSplit LTerm V V LTerm   -- split t as x,y in t
-            | LLambda Pi V LType LTerm  -- q \x:T.t
-            | LApp LTerm LTerm
-            | Let Pi [(V, LType, LTerm)] LTerm
+  data Term = Var V
+            | Pair Term Term Pi
+            | Split Term V V Term   -- split t as x,y in t
+            | Lambda Pi V Type Term  -- q \x:T.t
+            | App Term Term
+            | Let Pi [(V, Type, Term)] Term
             deriving (Show, Eq)
 
-  data LType = LTBool
-            | LTypePair LType Pi LType  -- T * T
-            | LArrow LType Pi LType     -- T -> T
-            | LTVar String
+  data Type = TBool
+            | TypePair Type Pi Type  -- T * T
+            | Arrow Type Pi Type     -- T -> T
+            | TVar String
             deriving (Show, Eq)
 
-  type LEnv = [(V, Pi, LType)]
+  type Env = [(V, Pi, Type)]
 
-  type LStore = Map V (Pi, LType, LTerm)
+  type Store = Map V (Pi, Type, Term)
