@@ -128,29 +128,26 @@ module WalkerCalculus where
   sepValue (Just (QValue q (RLambda x p t))) = Lambda q x p t
   sepValue (Just (QValue q (RPair t1 t2))) = Pair q t1 t2
 
-  boundW :: Term -> [V]
-  boundW (Var x) = []
-  boundW (Lambda q x t term) = x : (boundW term)
-  boundW (App t1 t2) = (boundW t1) ++ (boundW t2)
-  boundW (Pair q t1 t2) = (boundW t1) ++ (boundW t2)
-  boundW (Split t1 y z t2) = (boundW t1) ++ (boundW t2)
+  deref :: Store -> Term -> (Store, Term)
+  deref s (Var y) = case Map.lookup y s of
+                     Nothing -> error (y ++ " has no binding")
+                     t1@(Just (QValue q t2)) -> if q == UN then (deref s (sepValue t1)) else (deref (Map.delete y s) (sepValue t1))
+  deref s (Lambda q x t term) = case Map.lookup x s of
+                                 Nothing -> let (s', v) = deref s term
+                                           in (s', Lambda q x t v)
+                                 _       -> error (x ++ " is a bound variable, therefore it cannot appear in the heap")
+  deref s (App t1 t2) = let (s1, v1) = deref s t1
+                            (s2, v2) = deref s1 t2
+                       in (s2, App v1 v2)
+  deref s (Pair q t1 t2) = let (s1, v1) = deref s t1
+                               (s2, v2) = deref s1 t2
+                           in (s2, Pair q v1 v2)
+  deref s (Split t1 y z t2) = let (s1, v1) = deref s t1
+                                  (s2, v2) = deref s1 t2
+                              in (s2, Split v1 y z v2)
 
-  derefW :: Store -> Term -> Term
-  derefW s t = derefW' s (boundW t) t
-
-  derefW' :: Store -> [V] -> Term -> Term
-  derefW' s bound (Var y)
-    | a == Nothing = if (elem y bound) then (Var y) else error (y ++ " has no binding")
-    | otherwise = derefW' (Map.delete y s) bound (sepValue a)
-    where a = Map.lookup y s
-  derefW' s bound (Lambda q x t (Var y)) = Lambda q x t (derefW' s (x : bound) (Var y))
-  derefW' s bound (Lambda q x t term) = Lambda q x t (derefW' s (x : (bound ++ (boundW term))) term)
-  derefW' s bound (App t1 t2) = App (derefW' s bound t1) (derefW' s bound t2)
-  derefW' s bound (Pair q t1 t2) = Pair q (derefW' s bound t1) (derefW' s bound t2)
-  derefW' s bound (Split t1 y z t2) = Split (derefW' s bound t1) y z (derefW' s bound t2)
-
-  runderefW :: String -> String -> Term
-  runderefW store term = derefW (WParser.parseWStore store) (WParser.parseWTerm term)
+  runderef :: String -> String -> (Store, Term)
+  runderef store term = deref (WParser.parseWStore store) (WParser.parseWTerm term)
 
   runWO :: String -> String -> (Store, Term)
   runWO store term = eval (WParser.parseWStore store) (WParser.parseWTerm term)

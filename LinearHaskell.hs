@@ -12,6 +12,18 @@ module LinearHaskell where
   mult One One = One
   mult _ _ = Omega
 
+  substList :: (V, Term) -> [(V, Type, Term)] -> [(V, Type, Term)]
+  substList (x, term) [] = []
+  substList (x, term) ((y, t, term') : xs) = (y, t, subst (x, term) term') : (substList (x, term) xs)
+
+  subst :: (V, Term) -> Term -> Term
+  subst (x, term) (Var y) = if x == y then term else (Var y)
+  subst (x, term) (Lambda p y t term') = if x == y then (Lambda p y t term') else (Lambda p y t (subst (x, term) term'))
+  subst (x, term) (Pair term1 term2 p) = Pair (subst (x, term) term1) (subst (x, term) term2) p
+  subst (x, term) (App term1 term2) = App (subst (x, term) term1) (subst (x, term) term2)
+  subst (x, term) (Split term1 y z term2) = Split (subst (x, term) term1) y z (subst (x, term) term2)
+  subst (x, term) (Let p xs term') = Let p (substList (x, term) xs) (subst (x, term) term')
+
   typing :: Env -> Term -> (Type, Env)
   typing ((y, p, t) : env) (Var x) = let (t', env') = typing env (Var x)
                                      in if x == y then (if p == One then (t, env) else (t, (y, p, t) : env)) else (t', (y, p, t) : env')
@@ -29,24 +41,6 @@ module LinearHaskell where
   typing g (Let p [] term) = typing g term
   typing g (Let p ((x, a, t) : l) term) = let (a1, g1) = typing g t
                                          in if a == a1 then (typing (g1 ++ [(x, p, a)]) (Let p l term)) else error "Types are inconsistent in Let"
-
- {- typingL :: LEnv -> LTerm -> (LType, LEnv)
-  typingL ((y, p, t) : env) (LVar x) = let (t', env') = typingL env (LVar x)
-                                      in if x == y then (if p == One then (t, env) else (t, (y, p, t) : env)) else (t', (y, p, t) : env')
-  typingL g (LLambda p x t term) = let (t', env') = typingL (g ++ [(x, p, t)]) term
-                                  in (LArrow t p t', env') -- ver se x existe em gama
-  typingL g (LApp term1 term2) = let (LArrow t1 p' t2, env') = typingL g term1
-                                     (t, env'')              = typingL env' term2
-                                in if t1 == t then (t2, env'') else error "Type not consistent in application"
-  typingL g (LPair term1 term2 p) = let (t', g') = typingL g term1
-                                        (t'', g'') = typingL g' term2
-                                   in (LTypePair t' p t'', g'')
-  typingL g (LSplit term1 x y term2) = let (LTypePair t1 p t2, g') = typingL g term1
-                                           (t, g'') = typingL (g' ++ [(x, p, t1), (y, p, t2)]) term2
-                                      in (t, g'')
-  typingL g (Let p [] u) = typingL g u
-  typingL g (Let p ((x, a, t) : l) u) = let (a1, g1) = typingL (g ++ [(x, p, a)]) t
-                                       in if a == a1 then (typingL g1 (Let p l u)) else error "types are inconsistent in let"-}
 
   -- parsing function
   runLT :: String -> String -> (Type, Env)
@@ -148,31 +142,28 @@ module LinearHaskell where
   eval' g (Let p [] t) = eval' g t
   eval' g (Let p ((x1, a1, e1) : l) t) = eval' (Map.insert x1 (p, a1, e1) g) (Let p l t)
 
-  bound :: Term -> [V]
-  bound (Var x) = []
-  bound (Lambda p x t term) = x : (bound term)
-  bound (App t1 t2) = (bound t1) ++ (bound t2)
-  bound (Pair t1 t2 p) = (bound t1) ++ (bound t2)
-  bound (Split t1 y z t2) = (bound t1) ++ (bound t2)
-  bound (Let p l t) = bound t
+  deref :: Store -> Term -> (Store, Term)
+  deref g (Var y) = case Map.lookup y g of
+                     Nothing -> error (y ++ " has no binding")
+                     Just (pi, t, term) -> if pi == Omega then (deref g term) else (deref (Map.delete y g) term)
+  deref g (Lambda pi x t term) = case Map.lookup x g of
+                                 Nothing -> let (g', v) = deref g term
+                                           in (g', Lambda pi x t v)
+                                 _       -> error (x ++ " is a bound variable, therefore it cannot appear in the heap")
+  deref g (App t1 t2) = let (g1, v1) = deref g t1
+                            (g2, v2) = deref g1 t2
+                       in (g2, App v1 v2)
+  deref g (Pair t1 t2 pi) = let (g1, v1) = deref g t1
+                                (g2, v2) = deref g1 t2
+                            in (g2, Pair v1 v2 pi)
+  deref g (Split t1 y z t2) = let (g1, v1) = deref g t1
+                                  (g2, v2) = deref g1 t2
+                              in (g2, Split v1 y z v2)
+  deref g (Let pi [] term) = deref g term
+  deref g (Let pi ((x, t, term') : xs) term) = deref (Map.insert x (pi, t, term') g) (Let pi xs term)
 
-{-
-  derefL :: LStore -> LTerm -> LTerm
-  derefL g t = derefL' g (boundL t) t
-
-  derefL' :: LStore -> [V] -> LTerm -> LTerm
-  derefL' g bound (LVar y)
-    | a == Nothing = if (elem y bound) then (LVar y) else error (y ++ " has no binding")
-    | otherwise = derefL' (Map.delete y g) bound (Maybe.fromJust (Map.lookup y g))
-    where a =
-  derefL' g bound (LLambda p x t term) = LLambda p x t (derefL' g (x : (bound ++ (boundL term))) term)
-  derefL' g bound (LApp t1 t2) = LApp (derefL' g bound t1) (derefL' g bound t2)
-  derefL' g bound (LPair t1 t2 p) = LPair (derefL' g bound t1) (derefL' g bound t2) p
-  derefL' g bound (LSplit t1 y z t2) = LSplit (derefL' g bound t1) y z (derefL' g bound t2)
--}
-
---  runderefL :: String -> String -> LTerm
---  runderefL store term = derefL (Parser.parseLStore store) (Parser.parseLTerm term)
+  runderef :: String -> String -> (Store, Term)
+  runderef store term = deref (LParser.parseLStore store) (LParser.parseLTerm term)
 
   runLO :: String -> String -> (Store, Term)
   runLO store term = eval (LParser.parseLStore store) (LParser.parseLTerm term)
