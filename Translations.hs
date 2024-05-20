@@ -26,9 +26,9 @@ module Translations where
   translTypeWL (Pre q (WData.TypePair t1 t2)) = case q of
                                                  LIN -> LData.TypePair (translTypeWL t1) One (translTypeWL t2)
                                                  UN  -> LData.TypePair (translTypeWL t1) Omega (translTypeWL t2)
-  translTypeWL (Pre q (WData.Arrow (Pre q' t1') t2)) = case q' of
-                                                        LIN -> LData.Arrow (translTypeWL (Pre q' t1')) One (translTypeWL t2)
-                                                        UN  -> LData.Arrow (translTypeWL (Pre q' t1')) Omega (translTypeWL t2)
+  translTypeWL (Pre q (WData.Arrow t1@(Pre q' t1') t2)) = case q' of
+                                                           LIN -> LData.Arrow (translTypeWL t1) One (translTypeWL t2)
+                                                           UN  -> LData.Arrow (translTypeWL t1) Omega (translTypeWL t2)
   translTypeWL (Pre q (WData.TVar a)) = LData.TVar a
 
   translWL :: WData.Term -> LData.Term
@@ -37,9 +37,9 @@ module Translations where
                                          LIN -> LData.Pair (translWL term1) (translWL term2) One
                                          UN  -> LData.Pair (translWL term1) (translWL term2) Omega
   translWL (WData.Split term1 x y term2) = LData.Split (translWL term1) x y (translWL term2)
-  translWL (WData.Lambda q x t term) = case q of
-                                        LIN -> LData.Lambda One x (translTypeWL t) (translWL term)
-                                        UN  -> LData.Lambda Omega x (translTypeWL t) (translWL term)
+  translWL (WData.Lambda q x t@(Pre q' p) term) = case q' of
+                                                  LIN -> LData.Lambda One x (translTypeWL t) (translWL term)
+                                                  UN  -> LData.Lambda Omega x (translTypeWL t) (translWL term)
   translWL (WData.App term1 term2) = LData.App (translWL term1) (translWL term2)
 
 
@@ -65,9 +65,7 @@ module Translations where
                                           One -> WData.Pair LIN (translLW term1) (translLW term2)
                                           Omega -> WData.Pair UN (translLW term1) (translLW term2)
   translLW (LData.Split term1 x y term2) = WData.Split (translLW term1) x y (translLW term2)
-  translLW (LData.Lambda pi x t term) = case pi of
-                                         One -> WData.Lambda LIN x (translTypeLW pi t) (translLW term)
-                                         Omega -> WData.Lambda UN x (translTypeLW pi t) (translLW term)
+  translLW (LData.Lambda pi x t term) =  WData.Lambda UN x (translTypeLW pi t) (translLW term)
   translLW (LData.App term1 term2) = WData.App (translLW term1) (translLW term2)
   translLW (LData.Let p [] term) = translLW term
   translLW (LData.Let p ((x, t, term') : xs) term) = translLW (LData.Let p xs (LinearHaskell.subst (x, term') term))
@@ -80,17 +78,17 @@ module Translations where
   translTypeLW _ (LData.TypePair t1 q t2) = case q of
                                              One -> Pre LIN (WData.TypePair (translTypeLW q t1) (translTypeLW q t2))
                                              Omega -> Pre UN (WData.TypePair (translTypeLW q t1) (translTypeLW q t2))
-  translTypeLW q (LData.Arrow t1 q' t2) = case q' of
-                                           One -> Pre LIN (WData.Arrow (translTypeLW q t1) (translTypeLW q t2))
-                                           Omega -> Pre UN (WData.Arrow (translTypeLW q t1) (translTypeLW q t2))
+  translTypeLW q (LData.Arrow t1 q' t2) = case q of
+                                           One -> Pre LIN (WData.Arrow (translTypeLW q' t1) (translTypeLW q' t2))
+                                           Omega -> Pre UN (WData.Arrow (translTypeLW q' t1) (translTypeLW q' t2))
   translTypeLW q (LData.TVar a) = case q of
                                    One -> Pre LIN (WData.TVar a)
                                    Omega -> Pre UN (WData.TVar a)
   runWL :: String -> LData.Term
   runWL term = translWL (WParser.parseWTerm term)
 
- -- runLW :: String -> WData.Term
- -- runLW term = translLW (WParser.parseWTerm term)
+  runLW :: String -> WData.Term
+  runLW term = translLW (LParser.parseLTerm term)
 
   example1, example2 :: String
   example1 = "lin <lin \\x: lin a. x, lin \\y: lin a. y>"
