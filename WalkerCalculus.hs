@@ -4,6 +4,7 @@ module WalkerCalculus where
   import qualified Data.Map as Map
   import Data.List as List
   import WParser
+  import Control.Monad.State
 
 
 -- TYPECHECKER
@@ -62,37 +63,26 @@ module WalkerCalculus where
   runWT :: String -> String -> (Type, Env)
   runWT env term = typing (WParser.parseWEnv env) (WParser.parseWTerm term)
 
+  transfType :: String -> Type
+  transfType t = (WParser.parseWType t)
+
 
 
 -- OPERATIONAL SEMANTICS
 
+  -- function to assist in the creation of new variables
+  type Counter = State Int
+
+  getCount :: Counter Int
+  getCount = get
+
   -- in order to avoid creation of two sets of operational rules, one for linear data, which is deallocated when used, and one for unrestricted data, which is never deallocated, we define this function to manage the differences
   updateStore :: Store -> Q -> V -> Store
   updateStore s q y
-    = case Map.lookup y s of
+    = case (Map.lookup y s) of
         Nothing -> error "undefined variable"
-        _       -> if q == UN then s else Map.delete y s
+        _       -> if q == UN then s else (Map.delete y s)
 
-  -- function to assist in the creation of new variables
-  nextAddr :: Store -> Int
-  nextAddr s
-    = case Map.lookup x s of
-        Nothing -> n
-        _       -> nextAddr' s (n + 1)
-    where n = 1
-          x = "a" ++ (show n)
-          nextAddr' :: Store -> Int -> Int
-          nextAddr' s n' = let x' = "a" ++ (show n')
-                           in case Map.lookup x' s of
-                               Nothing -> n'
-                               _       -> nextAddr' s (n' + 1)
-
-  {-newVar :: Supply [Char] [Char]
-  newVar = do
-      name <- supply
-      return ("a" ++ name)-}
-
-  -- substitution
   subst :: (V, Term) -> Term -> Term
   subst (x, y) (Var z) = if x == z then y else (Var z)
   subst (x, y) (Pair q t1 t2) = Pair q (subst (x, y) t1) (subst (x, y) t2)
@@ -101,53 +91,77 @@ module WalkerCalculus where
   subst (x, y) (App t1 t2) = App (subst (x, y) t1) (subst (x, y) t2)
 
   -- evaluation function
-  eval :: Store -> Term -> (Store, Term)
-  eval s (Pair q t1 t2) = let addr = nextAddr s
-                              x = "a" ++ show addr
-                          in (Map.insert x (QValue q (RPair t1 t2)) s, Var x)
-  eval s (Split (Var x) y z t) = let Just (QValue q (RPair t1 t2)) = Map.lookup x s
-                                     s'  = updateStore s q x
-                                     t'  = subst (y, t1) t
-                                     t'' = subst (z, t2) t'
-                                 in (s', t'')
-  eval s (Split e y z t) = let (s', v) = eval s e
-                           in eval s' (Split v y z t)
-  eval s (Lambda q y p t) = let addr = nextAddr s
-                                x = "a" ++ show addr
-                            in (Map.insert x (QValue q (RLambda y p t)) s, Var x)
-  eval s (App (Var x1) (Var x2)) = let Just (QValue q (RLambda y p t)) = Map.lookup x1 s
-                                       s' = updateStore s q x1
-                                       t' = subst (y, Var x2) t
-                                   in (s', t')
-  eval s (App (Var x1) e) = let (s', v) = eval s e
-                            in eval s' (App (Var x1) v)
-  eval s (App e t) = let (s', v) = eval s e
-                     in eval s' (App v t)
+  initEval :: Store -> Term -> (Store, Term)
+  initEval s term = eval s (execState getCount 0) term
+
+  eval :: Store -> Int -> Term -> (Store, Term)
+  eval s n (Pair q t1 t2) = let n' = execState (modify (+1)) n
+                                x = "a" ++ (show n')
+                            in (Map.insert x (QValue q (RPair t1 t2)) s, Var x)
+  eval s n (Split (Var x) y z t) = let Just (QValue q (RPair t1 t2)) = Map.lookup x s
+                                       s'  = updateStore s q x
+                                       t'  = subst (y, t1) t
+                                       t'' = subst (z, t2) t'
+                                   in (s', t'')
+  eval s n (Split e y z t) = let (s', v) = eval s n e
+                             in eval s' n (Split v y z t)
+  eval s n (Lambda q y p t) = let n' = execState (modify (+1)) n
+                                  x = "a" ++ (show n')
+                              in (Map.insert x (QValue q (RLambda y p t)) s, Var x)
+  eval s n (App (Var x1) (Var x2)) = let Just (QValue q (RLambda y p t)) = Map.lookup x1 s
+                                         s' = updateStore s q x1
+                                         t' = subst (y, Var x2) t
+                                     in (s', t')
+  eval s n (App (Var x1) e) = let (s', v) = eval s n e
+                              in eval s' n (App (Var x1) v)
+  eval s n (App e t) = let (s', v) = eval s n e
+                      in eval s' n (App v t)
 
   sepValue :: Maybe Values -> Term
   sepValue (Just (QValue q (RLambda x p t))) = Lambda q x p t
   sepValue (Just (QValue q (RPair t1 t2))) = Pair q t1 t2
 
-  deref :: Store -> Term -> (Store, Term)
-  deref s (Var y) = case Map.lookup y s of
-                     Nothing -> error (y ++ " has no binding")
-                     t1@(Just (QValue q t2)) -> if q == UN then (deref s (sepValue t1)) else (deref (Map.delete y s) (sepValue t1))
-  deref s (Lambda q x t term) = case Map.lookup x s of
-                                 Nothing -> let (s', v) = deref s term
-                                           in (s', Lambda q x t v)
-                                 _       -> error (x ++ " is a bound variable, therefore it cannot appear in the heap")
-  deref s (App t1 t2) = let (s1, v1) = deref s t1
-                            (s2, v2) = deref s1 t2
-                       in (s2, App v1 v2)
-  deref s (Pair q t1 t2) = let (s1, v1) = deref s t1
-                               (s2, v2) = deref s1 t2
-                           in (s2, Pair q v1 v2)
-  deref s (Split t1 y z t2) = let (s1, v1) = deref s t1
-                                  (s2, v2) = deref s1 t2
-                              in (s2, Split v1 y z v2)
+  bound :: Term -> [V]
+  bound (Var x) = []
+  bound (Lambda q x t term) = x : (bound term)
+  bound (App t1 t2) = (bound t1) ++ (bound t2)
+  bound (Pair q t1 t2) = (bound t1) ++ (bound t2)
+  bound (Split t1 y z t2) = (bound t1) ++ (bound t2)
+
+  boundStore :: Store -> [V]
+  boundStore g = boundStore' (Map.toList g)
+    where
+      boundStore' [] = []
+      boundStore' ((x, (QValue q value)) : xs) = case value of
+                                                   RPair t1 t2 -> (bound (Pair q t1 t2))  ++ (boundStore' xs)
+                                                   RLambda y t term -> (bound (Lambda q y t term)) ++ (boundStore' xs)
+
+  initDeref :: Store -> Term -> (Store, Term)
+  initDeref g term = let l = (bound term) ++ (boundStore g)
+                    in deref g l term
+
+  deref :: Store -> [V] -> Term -> (Store, Term)
+  deref s l (Var y) = case elem y l of
+                       True  -> (s, Var y)
+                       False -> case Map.lookup y s of
+                                 Nothing -> error (y ++ " has no binding")
+                                 t1@(Just (QValue q t2)) -> if q == UN then (deref s l (sepValue t1)) else (deref (Map.delete y s) l (sepValue t1))   
+  deref s l (Lambda q x t term) = case Map.lookup x s of
+                                   Nothing -> let (s', v) = deref s l term
+                                             in (s', Lambda q x t v)
+                                   _       -> error (x ++ " is a bound variable, therefore it cannot appear in the heap")
+  deref s l (App t1 t2) = let (s1, v1) = deref s l t1
+                              (s2, v2) = deref s1 l t2
+                         in (s2, App v1 v2)
+  deref s l (Pair q t1 t2) = let (s1, v1) = deref s l t1
+                                 (s2, v2) = deref s1 l t2
+                             in (s2, Pair q v1 v2)
+  deref s l (Split t1 y z t2) = let (s1, v1) = deref s l t1
+                                    (s2, v2) = deref s1 l t2
+                                in (s2, Split v1 y z v2)
 
   runderef :: String -> String -> (Store, Term)
-  runderef store term = deref (WParser.parseWStore store) (WParser.parseWTerm term)
+  runderef store term = initDeref (WParser.parseWStore store) (WParser.parseWTerm term)
 
   runWO :: String -> String -> (Store, Term)
-  runWO store term = eval (WParser.parseWStore store) (WParser.parseWTerm term)
+  runWO store term = initEval (WParser.parseWStore store) (WParser.parseWTerm term)

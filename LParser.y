@@ -9,7 +9,7 @@ import LData
 %name parse1 Env
 %name parse2 Term
 %name parse3 Store
-
+%name parse4 Type
 
 %tokentype { Token }
 %error { parseError }
@@ -144,5 +144,8 @@ parsePrimLStore l = Map.fromList l
 
 parseLStore :: String -> Store
 parseLStore store = parsePrimLStore $ parse3 (lexer store)
+
+parseLType :: String -> Type
+parseLType t = parse4(lexer t)
 
 }

@@ -9,6 +9,7 @@ import WData
 %name parse1 Env
 %name parse2 Term
 %name parse3 Store
+%name parse4 Type
 
 %tokentype { Token }
 %error { parseError }
@@ -138,6 +139,9 @@ parsePrimWStore l = Map.fromList l
 
 parseWStore :: String -> Store
 parseWStore store = parsePrimWStore $ parse3 (lexer store)
+
+parseWType :: String -> Type
+parseWType t = parse4(lexer t)
 
 }
 

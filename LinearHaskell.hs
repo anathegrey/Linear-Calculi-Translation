@@ -5,6 +5,7 @@ module LinearHaskell where
   import Data.Maybe as Maybe
   import qualified Data.Map as Map
   import LParser
+  import Control.Monad.State
 
 -- TYPECHECKER
 
@@ -46,28 +47,17 @@ module LinearHaskell where
   runLT :: String -> String -> (Type, Env)
   runLT env term = typing (LParser.parseLEnv env) (LParser.parseLTerm term)
 
-
+  transfType :: String -> Type
+  transfType t = (LParser.parseLType t)
 
 
 -- OPERATIONAL SEMANTICS
 
   -- function to assist in the creation of new variables
-  nextAddr :: Store -> Int
-  nextAddr s
-    = case Map.lookup x s of
-        Nothing -> n
-        _       -> nextAddr' s (n + 1)
-    where n = 1
-          x = "a" ++ (show n)
-          nextAddr' :: Store -> Int -> Int
-          nextAddr' s n' = let x' = "a" ++ (show n')
-                           in case Map.lookup x' s of
-                               Nothing -> n'
-                               _       -> nextAddr' s (n' + 1)
+  type Counter = State Int
 
-  nextLet :: Term -> Int
-  nextLet (Let p l term) = length l + (nextLet term)
-  nextLet _ = 0
+  getCount :: Counter Int
+  getCount = get
 
   substTerm :: (V, Term) -> Term -> Term
   substTerm (y, t1) (Var x) = if x == y then t1 else (Var x)
@@ -88,44 +78,27 @@ module LinearHaskell where
 
   initlbury :: Store -> Term -> Term
   initlbury g term = let (t, env) = typing (transform g) term
-                    in lbury env term
+                    in lbury env (execState getCount 0) term
 
-  lbury :: Env -> Term -> Term
-  lbury g (Var x) = Var x
-  lbury g (Lambda p x t term) = Lambda p x t (lbury g term)
-  lbury g (App term (Var y)) = App (lbury g term) (Var y)
-  lbury g (App term1 term2) = let addr = nextLet term1 + nextLet term2
-                                  x1   = "a" ++ (show addr)
-                                  (Arrow t1 p t2, env) = typing g term1
-                              in Let p [(x1, t1, lbury g term2)] (App (lbury g term1) (Var x1))
-  lbury g (Pair term1 term2 p) = let (TypePair t1 p' t2, env) = typing g (Pair term1 term2 p)
-                                     addr1 = nextLet term1 + nextLet term2
-                                     x1 = "a" ++ (show addr1)
-                                     x2 = "a" ++ (show (addr1 + 1))
-                                 in Let p [(x1, t1, lbury g term1), (x2, t2, lbury g term2)] (Pair (Var x1) (Var x2) p)
-  lbury g (Split term1 x y term2) = Split (lbury g term1) x y (lbury g term2)
-  lbury g (Let p l term) = Let p (lbury' g l) (lbury g term)
+  lbury :: Env -> Int -> Term -> Term
+  lbury g i (Var x) = Var x
+  lbury g i (Lambda p x t term) = Lambda p x t (lbury g (execState getCount i) term)
+  lbury g i (App term (Var y)) = App (lbury g (execState getCount i) term) (Var y)
+  lbury g i (App term1 term2) = let (Arrow t1 p t2, env) = typing g term1
+                                    j = execState (modify (+1)) i
+                                    x1 = "a" ++ (show j)
+                                in Let p [(x1, t1, lbury g (execState getCount j) term2)] (App (lbury g (execState getCount j) term1) (Var x1))
+  lbury g i (Pair term1 term2 p) = let (TypePair t1 p' t2, env) = typing g (Pair term1 term2 p)
+                                       j = execState (modify (+1)) i
+                                       z = execState (modify (+1)) z
+                                       x1 = "a" ++ (show j)
+                                       x2 = "a" ++ (show z)
+                                   in Let p [(x1, t1, lbury g (execState getCount z) term1), (x2, t2, lbury g (execState getCount z) term2)] (Pair (Var x1) (Var x2) p)
+  lbury g i (Split term1 x y term2) = Split (lbury g (execState getCount i) term1) x y (lbury g (execState getCount i) term2)
+  lbury g i (Let p l term) = Let p (lbury' g (execState getCount i) l) (lbury g (execState getCount i) term)
     where
-      lbury' _ [] = []
-      lbury' g ((x1, a1, t1) : l) = (x1, a1, lbury g t1) : (lbury' g l)
-
- {- lbury :: LStore -> LTerm -> LTerm
-  lbury g (LVar x) = LVar x
-  lbury g (LLambda p x t term) = LLambda p x t (lbury g term)
-  lbury g (LApp term (LVar y)) = LApp (lbury g term) (LVar y)
-  lbury g (LApp term1 term2) = let addr = nextAddr g
-                                   x1 = "a" ++ (show addr)
-                              in Let Omega [(x1, LTVar "a", lbury g term2)] (LApp (lbury g term1) (LVar x1))
-  lbury g (LPair term1 term2 p) = let addr1 = nextAddr g
-                                      x1 = "a" ++ (show addr1)
-                                      addr2 = nextAddr (Map.insert x1 (p, LTVar "a", term1) g)
-                                      x2 = "a" ++ (show addr2)
-                                in Let Omega [(x1, LTVar "a", lbury g term1), (x2, LTVar "a", lbury g term2)] (LPair (LVar x1) (LVar x2) p)
-  lbury g (LSplit term1 x y term2) = LSplit (lbury g term1) x y (lbury g term2)
-  lbury g (Let p l term) = Let p (lbury' g l) (lbury g term)
-    where
-      lbury' _ [] = []
-      lbury' g ((x1, a1, t1) : l) = (x1, a1, lbury g t1) : (lbury' g l)-}
+      lbury' _ _ [] = []
+      lbury' g i ((x1, a1, t1) : l) = (x1, a1, lbury g (execState getCount i) t1) : (lbury' g (execState getCount i) l)
 
   eval, eval' :: Store -> Term -> (Store, Term)
   eval g t = let t' = initlbury g t
@@ -142,28 +115,48 @@ module LinearHaskell where
   eval' g (Let p [] t) = eval' g t
   eval' g (Let p ((x1, a1, e1) : l) t) = eval' (Map.insert x1 (p, a1, e1) g) (Let p l t)
 
-  deref :: Store -> Term -> (Store, Term)
-  deref g (Var y) = case Map.lookup y g of
-                     Nothing -> error (y ++ " has no binding")
-                     Just (pi, t, term) -> if pi == Omega then (deref g term) else (deref (Map.delete y g) term)
-  deref g (Lambda pi x t term) = case Map.lookup x g of
-                                 Nothing -> let (g', v) = deref g term
-                                           in (g', Lambda pi x t v)
-                                 _       -> error (x ++ " is a bound variable, therefore it cannot appear in the heap")
-  deref g (App t1 t2) = let (g1, v1) = deref g t1
-                            (g2, v2) = deref g1 t2
-                       in (g2, App v1 v2)
-  deref g (Pair t1 t2 pi) = let (g1, v1) = deref g t1
-                                (g2, v2) = deref g1 t2
-                            in (g2, Pair v1 v2 pi)
-  deref g (Split t1 y z t2) = let (g1, v1) = deref g t1
-                                  (g2, v2) = deref g1 t2
-                              in (g2, Split v1 y z v2)
-  deref g (Let pi [] term) = deref g term
-  deref g (Let pi ((x, t, term') : xs) term) = deref (Map.insert x (pi, t, term') g) (Let pi xs term)
+  bound :: Term -> [V]
+  bound (Var x) = []
+  bound (Lambda pi x t term) = x : (bound term)
+  bound (App t1 t2) = (bound t1) ++ (bound t2)
+  bound (Pair t1 t2 pi) = (bound t1) ++ (bound t2)
+  bound (Split t1 y z t2) = (bound t1) ++ (bound t2)
+  bound (Let pi xs term) = bound term
+
+  boundStore :: Store -> [V]
+  boundStore g = boundStore' (Map.toList g)
+    where
+      boundStore' [] = []
+      boundStore' ((x, (pi, t, term)) : xs) = bound term ++ (boundStore' xs)
+
+  initDeref :: Store -> Term -> (Store, Term)
+  initDeref g term = let l = (bound term) ++ (boundStore g)
+                    in deref g l term
+
+  deref :: Store -> [V] -> Term -> (Store, Term)
+  deref g l (Var y) = case elem y l of
+                       True  -> (g, Var y)
+                       False -> case Map.lookup y g of
+                                 Nothing -> error (y ++ " has no binding")
+                                 Just (pi, t, term) -> if pi == Omega then (deref g l term) else (deref (Map.delete y g) l term)
+  deref g l (Lambda pi x t term) = case Map.lookup x g of
+                                     Nothing -> let (g', v) = deref g l term
+                                               in (g', Lambda pi x t v)
+                                     _       -> error (x ++ " is a bound variable, therefore it cannot appear in the heap")
+  deref g l (App t1 t2) = let (g1, v1) = deref g l t1
+                              (g2, v2) = deref g1 l t2
+                          in (g2, App v1 v2)
+  deref g l (Pair t1 t2 pi) = let (g1, v1) = deref g l t1
+                                  (g2, v2) = deref g1 l t2
+                              in (g2, Pair v1 v2 pi)
+  deref g l (Split t1 y z t2) = let (g1, v1) = deref g l t1
+                                    (g2, v2) = deref g1 l t2
+                                in (g2, Split v1 y z v2)
+  deref g l (Let pi [] term) = deref g l term
+  deref g l (Let pi ((x, t, term') : xs) term) = deref (Map.insert x (pi, t, term') g) l (Let pi xs term)
 
   runderef :: String -> String -> (Store, Term)
-  runderef store term = deref (LParser.parseLStore store) (LParser.parseLTerm term)
+  runderef store term = initDeref (LParser.parseLStore store) (LParser.parseLTerm term)
 
   runLO :: String -> String -> (Store, Term)
   runLO store term = eval (LParser.parseLStore store) (LParser.parseLTerm term)
