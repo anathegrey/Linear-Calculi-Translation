@@ -28,6 +28,7 @@ import WData
       ','       { TokenComma }
       '('       { TokenOBrack }
       ')'       { TokenCBrack }
+      '='       { TokenEq }
       split     { TokenSplit }
       as        { TokenAs }
       in        { TokenIn }
@@ -48,7 +49,7 @@ Store : {- empty -} { [] }
        | Store ',' S { $3 : $1 }
        | S { [$1] }
 
-S : var ':' Values { ($1, $3) }
+S : var '=' Values { ($1, $3) }
 
 Term : var { Var $1 }
      | Qual '<' Term ',' Term '>' { Pair $1 $3 $5 }
@@ -89,6 +90,7 @@ data Token
       | TokenPair
       | TokenLess
       | TokenBigger
+      | TokenEq
       | TokenDot
       | TokenColon
       | TokenComma
@@ -110,6 +112,7 @@ lexer ('-':'>':cs) = TokenArrow : lexer cs
 lexer ('*':cs) = TokenPair : lexer cs
 lexer ('<':cs) = TokenLess : lexer cs
 lexer ('>':cs) = TokenBigger : lexer cs
+lexer ('=':cs) = TokenEq : lexer cs
 lexer ('.':cs) = TokenDot : lexer cs
 lexer (':':cs) = TokenColon : lexer cs
 lexer (',':cs) = TokenComma : lexer cs

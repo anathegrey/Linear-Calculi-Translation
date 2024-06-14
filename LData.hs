@@ -25,3 +25,5 @@ module LData where
   type Env = [(V, Pi, Type)]
 
   type Store = Map V (Pi, Type, Term)
+
+  type Supply = [Int]

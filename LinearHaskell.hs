@@ -82,23 +82,25 @@ module LinearHaskell where
 
   lbury :: Env -> Int -> Term -> Term
   lbury g i (Var x) = Var x
-  lbury g i (Lambda p x t term) = Lambda p x t (lbury g (execState getCount i) term)
-  lbury g i (App term (Var y)) = App (lbury g (execState getCount i) term) (Var y)
+  lbury g i (Lambda p x t term) = Lambda p x t (lbury g (execState (modify (+1)) i) term)
+  lbury g i (App term (Var y)) = App (lbury g (execState (modify (+1)) i) term) (Var y)
   lbury g i (App term1 term2) = let (Arrow t1 p t2, env) = typing g term1
                                     j = execState (modify (+1)) i
-                                    x1 = "a" ++ (show j)
-                                in Let p [(x1, t1, lbury g (execState getCount j) term2)] (App (lbury g (execState getCount j) term1) (Var x1))
+                                    x1 = "a" ++ (show i)
+                                in Let p [(x1, t1, lbury g j term2)] (App (lbury g (execState (modify (+1)) j) term1) (Var x1))
   lbury g i (Pair term1 term2 p) = let (TypePair t1 p' t2, env) = typing g (Pair term1 term2 p)
+                                       x1 = "a" ++ (show i)
                                        j = execState (modify (+1)) i
-                                       z = execState (modify (+1)) z
-                                       x1 = "a" ++ (show j)
-                                       x2 = "a" ++ (show z)
-                                   in Let p [(x1, t1, lbury g (execState getCount z) term1), (x2, t2, lbury g (execState getCount z) term2)] (Pair (Var x1) (Var x2) p)
+                                       x2 = "a" ++ (show j)
+                                       z = execState (modify (+1)) j
+                                   in Let p [(x1, t1, lbury g z term1), (x2, t2, lbury g (execState (modify (+1)) z) term2)] (Pair (Var x1) (Var x2) p)
   lbury g i (Split term1 x y term2) = Split (lbury g (execState getCount i) term1) x y (lbury g (execState getCount i) term2)
-  lbury g i (Let p l term) = Let p (lbury' g (execState getCount i) l) (lbury g (execState getCount i) term)
+  lbury g i (Let p l term) = Let p (lbury' g j l) (lbury g (execState (modify (+1)) j) term)
     where
+      j = execState (modify (+1)) i
       lbury' _ _ [] = []
-      lbury' g i ((x1, a1, t1) : l) = (x1, a1, lbury g (execState getCount i) t1) : (lbury' g (execState getCount i) l)
+      lbury' g i ((x1, a1, t1) : l) = let j = execState (modify (+1)) i
+                                     in (x1, a1, lbury g j t1) : (lbury' g (execState (modify (+1)) j) l)
 
   eval, eval' :: Store -> Term -> (Store, Term)
   eval g t = let t' = initlbury g t
@@ -120,8 +122,9 @@ module LinearHaskell where
   bound (Lambda pi x t term) = x : (bound term)
   bound (App t1 t2) = (bound t1) ++ (bound t2)
   bound (Pair t1 t2 pi) = (bound t1) ++ (bound t2)
-  bound (Split t1 y z t2) = (bound t1) ++ (bound t2)
-  bound (Let pi xs term) = bound term
+  bound (Split t1 y z t2) = y : z : (bound t1) ++ (bound t2)
+  bound (Let pi [] term) = bound term
+  bound (Let pi ((x, a, e) : xs) term) = bound e ++ bound (Let pi xs term)
 
   boundStore :: Store -> [V]
   boundStore g = boundStore' (Map.toList g)
@@ -155,8 +158,8 @@ module LinearHaskell where
   deref g l (Let pi [] term) = deref g l term
   deref g l (Let pi ((x, t, term') : xs) term) = deref (Map.insert x (pi, t, term') g) l (Let pi xs term)
 
-  runderef :: String -> String -> (Store, Term)
-  runderef store term = initDeref (LParser.parseLStore store) (LParser.parseLTerm term)
+  runderefL :: String -> String -> (Store, Term)
+  runderefL store term = initDeref (LParser.parseLStore store) (LParser.parseLTerm term)
 
   runLO :: String -> String -> (Store, Term)
   runLO store term = eval (LParser.parseLStore store) (LParser.parseLTerm term)

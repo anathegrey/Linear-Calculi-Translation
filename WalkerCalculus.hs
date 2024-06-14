@@ -5,6 +5,7 @@ module WalkerCalculus where
   import Data.List as List
   import WParser
   import Control.Monad.State
+  import Debug.Trace
 
 
 -- TYPECHECKER
@@ -95,27 +96,28 @@ module WalkerCalculus where
   initEval s term = eval s (execState getCount 0) term
 
   eval :: Store -> Int -> Term -> (Store, Term)
-  eval s n (Pair q t1 t2) = let n' = execState (modify (+1)) n
-                                x = "a" ++ (show n')
+  eval s n (Pair q t1 t2) = let x = "a" ++ (show n)
                             in (Map.insert x (QValue q (RPair t1 t2)) s, Var x)
   eval s n (Split (Var x) y z t) = let Just (QValue q (RPair t1 t2)) = Map.lookup x s
                                        s'  = updateStore s q x
                                        t'  = subst (y, t1) t
                                        t'' = subst (z, t2) t'
                                    in (s', t'')
-  eval s n (Split e y z t) = let (s', v) = eval s n e
-                             in eval s' n (Split v y z t)
-  eval s n (Lambda q y p t) = let n' = execState (modify (+1)) n
-                                  x = "a" ++ (show n')
+  eval s n (Split e y z t) = let n' = execState (modify (+1)) n
+                                 (s', v) = eval s n' e
+                             in eval s' (execState (modify (+1)) n') (Split v y z t)
+  eval s n (Lambda q y p t) = let x = "a" ++ (show n)
                               in (Map.insert x (QValue q (RLambda y p t)) s, Var x)
   eval s n (App (Var x1) (Var x2)) = let Just (QValue q (RLambda y p t)) = Map.lookup x1 s
                                          s' = updateStore s q x1
                                          t' = subst (y, Var x2) t
                                      in (s', t')
-  eval s n (App (Var x1) e) = let (s', v) = eval s n e
-                              in eval s' n (App (Var x1) v)
-  eval s n (App e t) = let (s', v) = eval s n e
-                      in eval s' n (App v t)
+  eval s n (App (Var x1) e) = let n' = (execState (modify (+1)) n)
+                                  (s', v) = eval s n' e
+                              in eval s' (execState (modify (+1)) n') (App (Var x1) v)
+  eval s n (App e t) = let n' = (execState (modify (+1)) n)
+                           (s', v) = eval s n' e
+                      in eval s' (execState (modify (+1)) n') (App v t)
 
   sepValue :: Maybe Values -> Term
   sepValue (Just (QValue q (RLambda x p t))) = Lambda q x p t
@@ -126,7 +128,7 @@ module WalkerCalculus where
   bound (Lambda q x t term) = x : (bound term)
   bound (App t1 t2) = (bound t1) ++ (bound t2)
   bound (Pair q t1 t2) = (bound t1) ++ (bound t2)
-  bound (Split t1 y z t2) = (bound t1) ++ (bound t2)
+  bound (Split t1 y z t2) = y : z : (bound t1) ++ (bound t2)
 
   boundStore :: Store -> [V]
   boundStore g = boundStore' (Map.toList g)
@@ -160,8 +162,9 @@ module WalkerCalculus where
                                     (s2, v2) = deref s1 l t2
                                 in (s2, Split v1 y z v2)
 
-  runderef :: String -> String -> (Store, Term)
-  runderef store term = initDeref (WParser.parseWStore store) (WParser.parseWTerm term)
+  runderefW :: String -> String -> (Store, Term)
+  runderefW store term = initDeref (WParser.parseWStore store) (WParser.parseWTerm term)
 
   runWO :: String -> String -> (Store, Term)
   runWO store term = initEval (WParser.parseWStore store) (WParser.parseWTerm term)
+  

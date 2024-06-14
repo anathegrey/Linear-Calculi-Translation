@@ -29,6 +29,8 @@ import LData
       '('       { TokenOBrack }
       ')'       { TokenCBrack }
       '='       { TokenEq }
+      '['       { TokenOSquare }
+      ']'       { TokenCSquare }
       split     { TokenSplit }
       as        { TokenAs }
       in        { TokenIn }
@@ -57,7 +59,7 @@ Term : var { Var $1 }
      | split Term as var ',' var in Term { Split $2 $4 $6 $8 }
      | '\\' Pi var ':' Type '.' Term { Lambda $2 $3 $5 $7}
      | Term Term %prec AP { App $1 $2 }
-     | let Pi Vs in Term { Let $2 $3 $5 } 
+     | let Pi '[' Vs ']' in Term { Let $2 $4 $7 } 
      | '(' Term ')' { $2 }
 
 Vs : {- empty -} { [] }
@@ -95,6 +97,8 @@ data Token
       | TokenComma
       | TokenOBrack
       | TokenCBrack
+      | TokenOSquare
+      | TokenCSquare
       | TokenEq
       | TokenSplit
       | TokenAs
@@ -118,6 +122,8 @@ lexer (':':cs) = TokenColon : lexer cs
 lexer (',':cs) = TokenComma : lexer cs
 lexer ('(':cs) = TokenOBrack : lexer cs
 lexer (')':cs) = TokenCBrack : lexer cs
+lexer ('[':cs) = TokenOSquare : lexer cs
+lexer (']':cs) = TokenCSquare : lexer cs
 lexer ('=':cs) = TokenEq : lexer cs
 
 lexVar :: String -> [Token]
