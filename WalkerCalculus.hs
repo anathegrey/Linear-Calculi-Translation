@@ -162,8 +162,8 @@ module WalkerCalculus where
                                     (s2, v2) = deref s1 l t2
                                 in (s2, Split v1 y z v2)
 
-  runderefW :: String -> String -> (Store, Term)
-  runderefW store term = initDeref (WParser.parseWStore store) (WParser.parseWTerm term)
+  runderefW :: String -> String -> Term
+  runderefW store term = snd $ initDeref (WParser.parseWStore store) (WParser.parseWTerm term)
 
   runWO :: String -> String -> (Store, Term)
   runWO store term = initEval (WParser.parseWStore store) (WParser.parseWTerm term)

@@ -158,8 +158,8 @@ module LinearHaskell where
   deref g l (Let pi [] term) = deref g l term
   deref g l (Let pi ((x, t, term') : xs) term) = deref (Map.insert x (pi, t, term') g) l (Let pi xs term)
 
-  runderefL :: String -> String -> (Store, Term)
-  runderefL store term = initDeref (LParser.parseLStore store) (LParser.parseLTerm term)
+  runderefL :: String -> String -> Term
+  runderefL store term = snd $ initDeref (LParser.parseLStore store) (LParser.parseLTerm term)
 
   runLO :: String -> String -> (Store, Term)
   runLO store term = eval (LParser.parseLStore store) (LParser.parseLTerm term)

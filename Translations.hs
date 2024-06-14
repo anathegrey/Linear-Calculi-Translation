@@ -97,7 +97,3 @@ module Translations where
 
   runTransfTypeLW :: Pi -> String -> WData.Type
   runTransfTypeLW pi t = translTypeLW pi (LParser.parseLType t)
-
-  example1, example2 :: String
-  example1 = "lin <lin \\x: lin a. x, lin \\y: lin a. y>"
-  example2 = "1 <\\1 x: a. x, \\1 y: a. y>"
