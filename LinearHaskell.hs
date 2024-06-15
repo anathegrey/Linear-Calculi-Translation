@@ -45,9 +45,9 @@ module LinearHaskell where
                                          in if a == a1 then (typing (g1 ++ [(x, p, a)]) (Let p l term)) else error "Types are inconsistent in Let"
 
   -- parsing function
-  runLT :: String -> String -> String
+  runLT :: String -> String -> (String, String)
   runLT env term = let (t, e) = typing (Parser.parseLEnv env) (Parser.parseLTerm term)
-                  in "Type: " ++ (render $ prettyLType t) ++ "\n\ \Env: " ++ (render $ prettyLEnv e)
+                  in (render $ prettyLType t, render $ prettyLEnv e)
 
   transfType :: String -> String
   transfType t = render $ prettyLType (Parser.parseLType t)
@@ -150,7 +150,7 @@ module LinearHaskell where
   runderefL :: String -> String -> String
   runderefL store term = render $ prettyLTerm (snd $ initDeref (Parser.parseLStore store) (Parser.parseLTerm term))
 
-  runLO :: String -> String -> String
+  runLO :: String -> String -> (String, String)
   runLO store term = let (s, t) = eval (Parser.parseLStore store) (Parser.parseLTerm term)
-                    in "Store: " ++ (render $ prettyLStore s) ++ "\n\ \Term: " ++ (render $ prettyLTerm t)
+                    in (render $ prettyLStore s, render $ prettyLTerm t)
   

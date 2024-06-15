@@ -62,9 +62,9 @@ module WalkerCalculus where
   typing _ _ = error "pattern not found in function"
 
   -- parsing function
-  runWT :: String -> String -> String
+  runWT :: String -> String -> (String, String)
   runWT env term = let (t, e) = typing (Parser.parseWEnv env) (Parser.parseWTerm term)
-                  in "Type: " ++ (render $ prettyWType t) ++ "\n\ \Env: " ++ (render $ prettyWEnv e)
+                  in (render $ prettyWType t, render $ prettyWEnv e)
 
   transfType :: String -> String
   transfType t = render $ prettyWType (Parser.parseWType t)
@@ -154,7 +154,7 @@ module WalkerCalculus where
   runderefW :: String -> String -> String
   runderefW store term = render $ prettyWTerm (snd $ initDeref (Parser.parseWStore store) (Parser.parseWTerm term))
 
-  runWO :: String -> String -> String
+  runWO :: String -> String -> (String, String)
   runWO store term = let (s, t) = initEval (Parser.parseWStore store) (Parser.parseWTerm term)
-                    in "Store: " ++ (render $ prettyWStore s) ++ "\n\ \Term: " ++ (render $ prettyWTerm t) 
+                    in (render $ prettyWStore s, render $ prettyWTerm t) 
   
