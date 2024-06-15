@@ -1,10 +1,12 @@
 module Translations where
   import Data.Map (Map)
   import qualified Data.Map as Map
+  import Text.PrettyPrint
   import Data
   import WalkerCalculus
   import LinearHaskell
   import Parser
+  import Pretty
 
   -- DAVID WALKER CALCULUS => LINEAR HASKELL
 
@@ -84,14 +86,15 @@ module Translations where
   translTypeLW q (LTVar a) = case q of
                               One -> Pre LIN (WTVar a)
                               Omega -> Pre UN (WTVar a)
-  runWL :: String -> LTerm
-  runWL term = translWL (Parser.parseWTerm term)
 
-  runLW :: String -> WTerm
-  runLW term = translLW (Parser.parseLTerm term)
+  runWL :: String -> String
+  runWL term = render $ prettyLTerm (translWL (Parser.parseWTerm term))
 
-  runTransfTypeWL :: String -> LType
-  runTransfTypeWL t = translTypeWL (Parser.parseWType t)
+  runLW :: String -> String
+  runLW term = render $ prettyWTerm (translLW (Parser.parseLTerm term))
 
-  runTransfTypeLW :: Pi -> String -> WType
-  runTransfTypeLW pi t = translTypeLW pi (Parser.parseLType t)
+  runTransfTypeWL :: String -> String
+  runTransfTypeWL t = render $ prettyLType (translTypeWL (Parser.parseWType t))
+
+  runTransfTypeLW :: Pi -> String -> String
+  runTransfTypeLW pi t = render $ prettyWType (translTypeLW pi (Parser.parseLType t))

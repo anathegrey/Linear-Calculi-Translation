@@ -1,11 +1,12 @@
 module WalkerCalculus where
-  import Data
   import Data.Map (Map)
   import qualified Data.Map as Map
   import Data.List as List
-  import Parser
   import Control.Monad.State
-  import Debug.Trace
+  import Text.PrettyPrint
+  import Data
+  import Parser
+  import Pretty
 
 
 -- TYPECHECKER
@@ -61,11 +62,12 @@ module WalkerCalculus where
   typing _ _ = error "pattern not found in function"
 
   -- parsing function
-  runWT :: String -> String -> (WType, WEnv)
-  runWT env term = typing (Parser.parseWEnv env) (Parser.parseWTerm term)
+  runWT :: String -> String -> String
+  runWT env term = let (t, e) = typing (Parser.parseWEnv env) (Parser.parseWTerm term)
+                  in "Type: " ++ (render $ prettyWType t) ++ "\n\ \Env: " ++ (render $ prettyWEnv e)
 
-  transfType :: String -> WType
-  transfType t = (Parser.parseWType t)
+  transfType :: String -> String
+  transfType t = render $ prettyWType (Parser.parseWType t)
 
 
 
@@ -149,9 +151,10 @@ module WalkerCalculus where
                                      (s2, v2) = deref s1 l t2
                                  in (s2, WSplit v1 y z v2)
 
-  runderefW :: String -> String -> WTerm
-  runderefW store term = snd $ initDeref (Parser.parseWStore store) (Parser.parseWTerm term)
+  runderefW :: String -> String -> String
+  runderefW store term = render $ prettyWTerm (snd $ initDeref (Parser.parseWStore store) (Parser.parseWTerm term))
 
-  runWO :: String -> String -> (WStore, WTerm)
-  runWO store term = initEval (Parser.parseWStore store) (Parser.parseWTerm term)
+  runWO :: String -> String -> String
+  runWO store term = let (s, t) = initEval (Parser.parseWStore store) (Parser.parseWTerm term)
+                    in "Store: " ++ (render $ prettyWStore s) ++ "\n\ \Term: " ++ (render $ prettyWTerm t) 
   

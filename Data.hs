@@ -3,6 +3,7 @@ module Data where
   import qualified Data.Map as Map
   import Control.Monad.State
 
+-- DAVID WALKER CALCULUS
   data Q = LIN
          | UN
          deriving (Show, Eq)
@@ -41,6 +42,8 @@ module Data where
               deriving (Show, Eq)
 
   type WStore = Map V Values
+
+-- LINEAR HASKELL
 
   data Pi = One
           | Omega

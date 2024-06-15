@@ -1,11 +1,12 @@
 module LinearHaskell where
-  import Data
   import Data.Map (Map)
-  import Data.List as List
   import Data.Maybe as Maybe
   import qualified Data.Map as Map
-  import Parser
+  import Text.PrettyPrint
   import Control.Monad.State
+  import Data
+  import Parser
+  import Pretty
 
 -- TYPECHECKER
 
@@ -44,12 +45,12 @@ module LinearHaskell where
                                          in if a == a1 then (typing (g1 ++ [(x, p, a)]) (Let p l term)) else error "Types are inconsistent in Let"
 
   -- parsing function
-  runLT :: String -> String -> (LType, LEnv)
-  runLT env term = typing (Parser.parseLEnv env) (Parser.parseLTerm term)
+  runLT :: String -> String -> String
+  runLT env term = let (t, e) = typing (Parser.parseLEnv env) (Parser.parseLTerm term)
+                  in "Type: " ++ (render $ prettyLType t) ++ "\n\ \Env: " ++ (render $ prettyLEnv e)
 
-  transfType :: String -> LType
-  transfType t = (Parser.parseLType t)
-
+  transfType :: String -> String
+  transfType t = render $ prettyLType (Parser.parseLType t)
 
 -- OPERATIONAL SEMANTICS
 
@@ -146,8 +147,10 @@ module LinearHaskell where
   deref g l (Let pi [] term) = deref g l term
   deref g l (Let pi ((x, t, term') : xs) term) = deref (Map.insert x (pi, t, term') g) l (Let pi xs term)
 
-  runderefL :: String -> String -> LTerm
-  runderefL store term = snd $ initDeref (Parser.parseLStore store) (Parser.parseLTerm term)
+  runderefL :: String -> String -> String
+  runderefL store term = render $ prettyLTerm (snd $ initDeref (Parser.parseLStore store) (Parser.parseLTerm term))
 
-  runLO :: String -> String -> (LStore, LTerm)
-  runLO store term = eval (Parser.parseLStore store) (Parser.parseLTerm term)
+  runLO :: String -> String -> String
+  runLO store term = let (s, t) = eval (Parser.parseLStore store) (Parser.parseLTerm term)
+                    in "Store: " ++ (render $ prettyLStore s) ++ "\n\ \Term: " ++ (render $ prettyLTerm t)
+  
