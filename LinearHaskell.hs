@@ -77,25 +77,25 @@ module LinearHaskell where
 
   lbury :: LEnv -> Int -> LTerm -> LTerm
   lbury g i (LVar x) = LVar x
-  lbury g i (LLambda p x t term) = LLambda p x t (lbury g (execState (modify (+1)) i) term)
-  lbury g i (LApp term (LVar y)) = LApp (lbury g (execState (modify (+1)) i) term) (LVar y)
+  lbury g i (LLambda p x t term) = LLambda p x t (lbury g (execState getCount i) term)
+  lbury g i (LApp term (LVar y)) = LApp (lbury g (execState getCount i) term) (LVar y)
   lbury g i (LApp term1 term2) = let (LArrow t1 p t2, env) = typing g term1
                                      j = execState (modify (+1)) i
                                      x1 = "a" ++ (show i)
-                                 in Let p [(x1, t1, lbury g j term2)] (LApp (lbury g (execState (modify (+1)) j) term1) (LVar x1))
+                                 in Let p [(x1, t1, lbury g (execState getCount j) term2)] (LApp (lbury g (execState (modify (+1)) j) term1) (LVar x1))
   lbury g i (LPair term1 term2 p) = let (LTypePair t1 p' t2, env) = typing g (LPair term1 term2 p)
                                         x1 = "a" ++ (show i)
                                         j = execState (modify (+1)) i
                                         x2 = "a" ++ (show j)
                                         z = execState (modify (+1)) j
-                                    in Let p [(x1, t1, lbury g z term1), (x2, t2, lbury g (execState (modify (+1)) z) term2)] (LPair (LVar x1) (LVar x2) p)
+                                    in Let p [(x1, t1, lbury g (execState getCount z) term1), (x2, t2, lbury g (execState (modify (+1)) z) term2)] (LPair (LVar x1) (LVar x2) p)
   lbury g i (LSplit term1 x y term2) = LSplit (lbury g (execState getCount i) term1) x y (lbury g (execState getCount i) term2)
-  lbury g i (Let p l term) = Let p (lbury' g j l) (lbury g (execState (modify (+1)) j) term)
+  lbury g i (Let p l term) = Let p (lbury' g j l) (lbury g (execState getCount j) term)
     where
       j = execState (modify (+1)) i
       lbury' _ _ [] = []
       lbury' g i ((x1, a1, t1) : l) = let j = execState (modify (+1)) i
-                                     in (x1, a1, lbury g j t1) : (lbury' g (execState (modify (+1)) j) l)
+                                     in (x1, a1, lbury g j t1) : (lbury' g (execState getCount j) l)
 
   eval, eval' :: LStore -> LTerm -> (LStore, LTerm)
   eval g t = let t' = initlbury g t

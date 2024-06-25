@@ -101,7 +101,7 @@ module WalkerCalculus where
                                      in (s', t'')
   eval s n (WSplit e y z t) = let n' = execState (modify (+1)) n
                                   (s', v) = eval s n' e
-                              in eval s' (execState (modify (+1)) n') (WSplit v y z t)
+                              in eval s' (execState getCount n') (WSplit v y z t)
   eval s n (WLambda q y p t) = let x = "a" ++ (show n)
                                in (Map.insert x (QValue q (RLambda y p t)) s, WVar x)
   eval s n (WApp (WVar x1) (WVar x2)) = let Just (QValue q (RLambda y p t)) = Map.lookup x1 s
@@ -110,10 +110,10 @@ module WalkerCalculus where
                                         in (s', t')
   eval s n (WApp (WVar x1) e) = let n' = (execState (modify (+1)) n)
                                     (s', v) = eval s n' e
-                                in eval s' (execState (modify (+1)) n') (WApp (WVar x1) v)
+                                in eval s' (execState getCount n') (WApp (WVar x1) v)
   eval s n (WApp e t) = let n' = (execState (modify (+1)) n)
                             (s', v) = eval s n' e
-                       in eval s' (execState (modify (+1)) n') (WApp v t)
+                       in eval s' (execState getCount n') (WApp v t)
 
   sepValue :: Maybe Values -> WTerm
   sepValue (Just (QValue q (RLambda x p t))) = WLambda q x p t

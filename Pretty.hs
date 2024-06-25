@@ -60,6 +60,11 @@ prettyPi :: Pi -> Doc
 prettyPi One = text "1"
 prettyPi Omega = text "w"
 
+prettyLList :: [(V, LType, LTerm)] -> Doc
+prettyLList [] = empty
+prettyLList ((x, t, term) : []) = text "(" <> text x <> text "," <+> (prettyLType t) <> text "," <+> (prettyLTerm term) <> text ")"
+prettyLList ((x, t, term) : xs) = text "(" <> text x <> text "," <+> (prettyLType t) <> text "," <+> (prettyLTerm term) <> text ")" <> text "," <+> (prettyLList xs) 
+
 prettyLTerm :: LTerm -> Doc
 prettyLTerm term = prettyPrint' term
   where
@@ -72,7 +77,9 @@ prettyLTerm term = prettyPrint' term
         LSplit t1 y z t2 -> wrapper $ text "split" <+> (prettyLTerm t1) <+> text "as" <+> text y <> text "," <+> text z <+> text "in" <+> (prettyLTerm t2)
         LLambda p x t t1 -> wrapper $ text "\\" <>  (prettyPi p) <+> text x <> text ":" <+> (prettyLType t) <> text "." <+> (prettyLTerm t1)
         LApp t1 t2 -> wrapper $ (prettyWithParens t1) <+> (prettyWithParens t2)
+        Let pi xs term -> wrapper $ text "let" <+> (prettyPi pi) <+> text "[" <> prettyLList xs <> text "]" <+> text "in" <+> (prettyLTerm term)
 
+        
 prettyLType :: LType -> Doc
 prettyLType t = prettyPrint' t
   where
