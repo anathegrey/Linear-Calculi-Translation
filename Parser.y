@@ -43,9 +43,9 @@ import Data
       let       { TokenLet }
       var       { TokenVar $$ }
 
-%left AP
-%right '\\' "->" '.'
-%nonassoc "lin" "un" "1" "w" "Bool" '*' '<' '>' ':' ',' '(' ')' '[' ']' '=' split as in let var
+%left AP 
+%right '\\' "->" '.' 
+%nonassoc "lin" "un" "1" "w" "Bool" '*' '<' '>' ':' ',' '(' ')' '[' ']' '=' let var split as in
 
 %%
 WEnv : {- empty -} { [] }

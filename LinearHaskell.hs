@@ -83,6 +83,7 @@ module LinearHaskell where
                                      j = execState (modify (+1)) i
                                      x1 = "a" ++ (show i)
                                  in Let p [(x1, t1, lbury g (execState getCount j) term2)] (LApp (lbury g (execState (modify (+1)) j) term1) (LVar x1))
+  lbury g i (LPair (LVar x) (LVar y) p) = LPair (LVar x) (LVar y) p
   lbury g i (LPair term1 term2 p) = let (LTypePair t1 p' t2, env) = typing g (LPair term1 term2 p)
                                         x1 = "a" ++ (show i)
                                         j = execState (modify (+1)) i
@@ -153,4 +154,6 @@ module LinearHaskell where
   runLO :: String -> String -> (String, String)
   runLO store term = let (s, t) = eval (Parser.parseLStore store) (Parser.parseLTerm term)
                     in (render $ prettyLStore s, render $ prettyLTerm t)
-  
+
+  runlbury :: String -> String
+  runlbury term = render $ prettyLTerm (lbury [] 0 (Parser.parseLTerm term))

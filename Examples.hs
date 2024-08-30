@@ -11,3 +11,6 @@ ex4 = "lin <" ++ ex3 ++ ", lin \\y: lin a. y>"
 -- LINEAR HASKELL
 ex5 :: String
 ex5 = "let w [x : a ->w a = \\w y: a. y] in 1 <x, x>"
+
+ex6 :: String
+ex6 = "split (1 <\\1 x: a ->1 a.x, \\1 y: a.y>) as a, b in (a b)"

@@ -98,19 +98,16 @@ module WalkerCalculus where
                                          s'  = updateStore s q x
                                          t'  = subst (y, t1) t
                                          t'' = subst (z, t2) t'
-                                     in (s', t'')
+                                     in eval s' (execState getCount n) t''
   eval s n (WSplit e y z t) = let n' = execState (modify (+1)) n
                                   (s', v) = eval s n' e
                               in eval s' (execState getCount n') (WSplit v y z t)
   eval s n (WLambda q y p t) = let x = "a" ++ (show n)
                                in (Map.insert x (QValue q (RLambda y p t)) s, WVar x)
-  eval s n (WApp (WVar x1) (WVar x2)) = let Just (QValue q (RLambda y p t)) = Map.lookup x1 s
-                                            s' = updateStore s q x1
-                                            t' = subst (y, WVar x2) t
-                                        in (s', t')
-  eval s n (WApp (WVar x1) e) = let n' = (execState (modify (+1)) n)
-                                    (s', v) = eval s n' e
-                                in eval s' (execState getCount n') (WApp (WVar x1) v)
+  eval s n (WApp (WVar x1) e) = let Just (QValue q (RLambda y p t)) = Map.lookup x1 s
+                                    s' = updateStore s q x1
+                                    t' = subst (y, e) t
+                                in eval s' (execState getCount n) t'
   eval s n (WApp e t) = let n' = (execState (modify (+1)) n)
                             (s', v) = eval s n' e
                        in eval s' (execState getCount n') (WApp v t)
