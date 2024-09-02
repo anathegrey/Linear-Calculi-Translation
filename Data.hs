@@ -17,14 +17,14 @@ module Data where
 
   data WTerm = WVar V
              | WPair Q WTerm WTerm
-             | WSplit WTerm V V WTerm   -- split t as x,y in t
-             | WLambda Q V WType WTerm  -- q \x:T.t
+             | WSplit WTerm V V WTerm  
+             | WLambda Q V WType WTerm  
              | WApp WTerm WTerm
              deriving (Show, Eq)
 
   data PreType = WTBool
-               | WTypePair WType WType  -- T * T
-               | WArrow WType WType     -- T -> T
+               | WTypePair WType WType  
+               | WArrow WType WType     
                | WTVar String
                deriving (Show, Eq)
 
@@ -43,23 +43,23 @@ module Data where
 
   type WStore = Map V Values
 
--- LINEAR HASKELL
 
+-- LINEAR HASKELL
   data Pi = One
           | Omega
           deriving (Show, Eq)
 
   data LTerm = LVar V
              | LPair LTerm LTerm Pi
-             | LSplit LTerm V V LTerm   -- split t as x,y in t
-             | LLambda Pi V LType LTerm  -- q \x:T.t
+             | LSplit LTerm V V LTerm
+             | LLambda Pi V LType LTerm
              | LApp LTerm LTerm
              | Let Pi [(V, LType, LTerm)] LTerm
              deriving (Show, Eq)
 
   data LType = LTBool
-             | LTypePair LType Pi LType  -- T * T
-             | LArrow LType Pi LType     -- T -> T
+             | LTypePair LType Pi LType
+             | LArrow LType Pi LType 
              | LTVar String
              deriving (Show, Eq)
 
