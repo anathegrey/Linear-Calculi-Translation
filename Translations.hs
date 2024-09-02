@@ -10,6 +10,7 @@ module Translations where
 
   -- DAVID WALKER CALCULUS => LINEAR HASKELL
 
+-- translation of an environment in the David Walker Calculus to Linear Haskell
   translStoG :: WStore -> LStore
   translStoG s = Map.fromList (translStoG' (Map.toList s))
     where
@@ -21,6 +22,7 @@ module Translations where
                                                         LIN -> (x, (One, translTypeWL (fst (WalkerCalculus.typing [] (WPair q t1 t2))), translWL (WPair q t1 t2))) : (translStoG' l)
                                                         UN  -> (x, (Omega, translTypeWL (fst (WalkerCalculus.typing [] (WPair q t1 t2))), translWL (WPair q t1 t2))) : (translStoG' l)
 
+-- translation of a type in the David Walker Calculus to Linear Haskell
   translTypeWL :: WType -> LType
   translTypeWL (Pre q WTBool) = LTBool
   translTypeWL (Pre q (WTypePair t1 t2)) = case q of
@@ -31,6 +33,7 @@ module Translations where
                                                        UN  -> LArrow (translTypeWL t1) Omega (translTypeWL t2)
   translTypeWL (Pre q (WTVar a)) = LTVar a
 
+-- translation of terms in the David Walker Calculus to Linear Haskell
   translWL :: WTerm -> LTerm
   translWL (WVar x) = (LVar x)
   translWL (WPair q term1 term2) = case q of
@@ -45,7 +48,7 @@ module Translations where
 
   -- LINEAR HASKELL => DAVID WALKER CALCULUS
 
-
+-- translation of an environment in Linear Haskell to the David Walker Calculus
   translGtoS :: LStore -> WStore
   translGtoS g = Map.fromList (translGtoS' (Map.toList g)) 
     where
@@ -55,10 +58,12 @@ module Translations where
                                                 One -> (x, QValue LIN (translPreValues (snd v))) : (translGtoS' l)
                                                 Omega -> (x, QValue UN (translPreValues (snd v))) : (translGtoS' l)
 
+-- translation of values in Linear Haskell to the David Walker Calculus
   translPreValues :: LTerm -> PreValues
   translPreValues (LLambda pi x t term) = RLambda x (translTypeLW pi t) (translLW term)
   translPreValues (LPair term1 term2 pi) = RPair (translLW term1) (translLW term2)
 
+-- translation of terms in Linear Haskell to the David Walker Calculus
   translLW :: LTerm -> WTerm
   translLW (LVar x) = WVar x
   translLW (LPair term1 term2 pi) = case pi of
@@ -72,7 +77,7 @@ module Translations where
   translLW (Let p [] term) = translLW term
   translLW (Let p ((x, t, term') : xs) term) = translLW (Let p xs (LinearHaskell.subst (x, term') term))
 
-
+-- translation of a type in Linear Haskell to the David Walker Calculus
   translTypeLW :: Pi -> LType -> WType
   translTypeLW q LTBool = case q of
                             One -> Pre LIN WTBool
@@ -87,6 +92,8 @@ module Translations where
                               One -> Pre LIN (WTVar a)
                               Omega -> Pre UN (WTVar a)
 
+
+-- RESULTS
   runWL :: String -> String
   runWL term = render $ prettyLTerm (translWL (Parser.parseWTerm term))
 
