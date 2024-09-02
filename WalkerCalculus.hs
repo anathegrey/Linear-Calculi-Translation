@@ -123,6 +123,7 @@ module WalkerCalculus where
   bound (WPair q t1 t2) = (bound t1) ++ (bound t2)
   bound (WSplit t1 y z t2) = y : z : (bound t1) ++ (bound t2)
 
+-- deref function for the David Walker Calculus
   initDeref :: WStore -> WTerm -> (WStore, WTerm)
   initDeref g term = let l = (bound term)
                     in deref g l term
@@ -148,6 +149,8 @@ module WalkerCalculus where
                                      (s2, v2) = deref s1 l t2
                                  in (s2, WSplit v1 y z v2)
 
+
+-- RESULTS
   runderefW :: String -> String -> String
   runderefW store term = render $ prettyWTerm (snd $ initDeref (Parser.parseWStore store) (Parser.parseWTerm term))
 
