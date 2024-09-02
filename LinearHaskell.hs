@@ -9,7 +9,6 @@ module LinearHaskell where
   import Pretty
 
 -- TYPECHECKER
-
   mult :: Pi -> Pi -> Pi
   mult One One = One
   mult _ _ = Omega
@@ -54,6 +53,7 @@ module LinearHaskell where
 
 -- OPERATIONAL SEMANTICS
 
+-- substitutions on terms
   substTerm :: (V, LTerm) -> LTerm -> LTerm
   substTerm (y, t1) (LVar x) = if x == y then t1 else (LVar x)
   substTerm (y, t1) (LLambda p x t t2) = if x == y then (LLambda p x t t2) else (LLambda p x t (substTerm (y, t1) t2))
@@ -65,12 +65,14 @@ module LinearHaskell where
       substList (_, _) [] = []
       substList (y, t1) ((x, t, term) : l) = (x, t, substTerm (y, t1) term) : (substList (y, t1) l)
 
+-- transforming terms into environments, displaying only their types
   transform :: LStore -> LEnv
   transform g = transform' (Map.toList g)
     where
       transform' [] = []
       transform' ((x, (p, t, term)) : l) = (x, p, t) : (transform' l)
 
+-- Launchbury's normalisation of terms
   initlbury :: LStore -> LTerm -> LTerm
   initlbury g term = let (t, env) = typing (transform g) term
                     in lbury env (execState getCount 0) term
@@ -98,6 +100,7 @@ module LinearHaskell where
       lbury' g i ((x1, a1, t1) : l) = let j = execState (modify (+1)) i
                                      in (x1, a1, lbury g j t1) : (lbury' g (execState getCount j) l)
 
+-- evaluation function
   eval, eval' :: LStore -> LTerm -> (LStore, LTerm)
   eval g t = let t' = initlbury g t
              in eval' g t'
@@ -113,6 +116,7 @@ module LinearHaskell where
   eval' g (Let p [] t) = eval' g t
   eval' g (Let p ((x1, a1, e1) : l) t) = eval' (Map.insert x1 (p, a1, e1) g) (Let p l t)
 
+-- function to collect all bound variables of a given term 
   bound :: LTerm -> [V]
   bound (LVar x) = []
   bound (LLambda pi x t term) = x : (bound term)
@@ -122,6 +126,7 @@ module LinearHaskell where
   bound (Let pi [] term) = bound term
   bound (Let pi ((x, a, e) : xs) term) = bound e ++ bound (Let pi xs term)
 
+-- deref function for Linear Haskell
   initDeref :: LStore -> LTerm -> (LStore, LTerm)
   initDeref g term = let l = bound term
                     in deref g l term
@@ -148,12 +153,10 @@ module LinearHaskell where
   deref g l (Let pi [] term) = deref g l term
   deref g l (Let pi ((x, t, term') : xs) term) = deref (Map.insert x (pi, t, term') g) l (Let pi xs term)
 
+-- RESULTS
   runderefL :: String -> String -> String
   runderefL store term = render $ prettyLTerm (snd $ initDeref (Parser.parseLStore store) (Parser.parseLTerm term))
 
   runLO :: String -> String -> (String, String)
   runLO store term = let (s, t) = eval (Parser.parseLStore store) (Parser.parseLTerm term)
                     in (render $ prettyLStore s, render $ prettyLTerm t)
-
-  runlbury :: String -> String
-  runlbury term = render $ prettyLTerm (lbury [] 0 (Parser.parseLTerm term))
